@@ -1,0 +1,114 @@
+name: SSRL ERP Release Gate
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    name: Production Validation & E2E Gate
+    runs-on: ubuntu-latest
+    
+    env:
+      NODE_ENV: test
+      TEST_DATABASE: "true"
+      DATABASE_URL: postgresql://testuser:testpass@localhost:5432/ssrl_erp_test?schema=public
+      PORT: 3000
+      JWT_SECRET: test_jwt_secret_for_ci_only
+      VITE_API_URL: http://localhost:3000/api/v1
+      IMAGEKIT_PUBLIC_KEY: fake_public_key
+      IMAGEKIT_PRIVATE_KEY: fake_private_key
+      IMAGEKIT_URL_ENDPOINT: https://ik.imagekit.io/fake
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Start isolated PostgreSQL test database
+        run: docker compose -f docker-compose.test.yml up -d
+
+      - name: Install dependencies (Root)
+        run: npm ci || npm install
+
+      - name: Install dependencies (Backend)
+        working-directory: ./backend
+        run: npm ci || npm install
+
+      - name: Install dependencies (Frontend)
+        working-directory: ./frontend
+        run: npm ci || npm install
+
+      - name: Typecheck Frontend
+        working-directory: ./frontend
+        run: npm run typecheck
+
+      - name: Lint Frontend
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: Build Frontend
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Typecheck Backend
+        working-directory: ./backend
+        run: npm run typecheck
+
+      - name: Lint Backend
+        working-directory: ./backend
+        run: npm run lint
+
+      - name: Build Backend
+        working-directory: ./backend
+        run: npm run build
+
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          echo "Waiting for postgres..."
+          for i in {1..30}; do
+            docker exec ssrl-test-db pg_isready -U testuser -d ssrl_erp_test && break
+            sleep 1
+          done
+
+      - name: Initialize Test Database Schema (Prisma)
+        working-directory: ./backend
+        run: npx prisma migrate deploy
+
+      - name: Seed Test Data
+        working-directory: ./backend
+        run: npx ts-node scripts/seed-test-db.ts
+
+      - name: Start Backend
+        working-directory: ./backend
+        run: |
+          npm run dev &
+          echo $! > backend.pid
+          
+      - name: Wait for Backend API
+        run: |
+          echo "Waiting for backend on port 3000..."
+          for i in {1..30}; do
+            curl -s http://localhost:3000/api/v1/settings && break
+            sleep 1
+          done
+
+      - name: Run Frontend Unit & Component Tests
+        working-directory: ./frontend
+        run: npm run test:unit
+
+      - name: Run E2E Tests (Release Gate)
+        working-directory: ./frontend
+        run: npm run test:e2e
+
+      - name: Teardown Test Environment
+        if: always()
+        run: |
+          docker compose -f docker-compose.test.yml down -v
+          if [ -f backend/backend.pid ]; then kill $(cat backend/backend.pid) || true; fi
