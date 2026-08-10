@@ -1,0 +1,592 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PartyType {
+  MARKET
+  COMPANY
+}
+
+enum BillingType {
+  INDIVIDUAL
+  CONSOLIDATED
+}
+
+enum PaymentType {
+  STANDARD
+  BULK
+}
+
+enum VehicleStatus {
+  ACTIVE
+  INACTIVE
+  SOLD
+}
+
+enum CustomerType {
+  MARKET
+  COMPANY
+}
+
+enum VehicleType {
+  OWN_FLEET
+  EXTERNAL
+}
+
+enum TripStatus {
+  CREATED
+  IN_PROGRESS
+  DELIVERED
+  POD_RECEIVED
+  BILLED
+  SUBMITTED
+  PAYMENT_PENDING
+  PAID
+  CLOSED
+}
+
+enum ExpenseType {
+  FUEL
+  DRIVER_BATTA
+  FASTAG
+  MAINTENANCE
+  OTHER
+}
+
+enum DocumentType {
+  POD
+}
+
+enum VehicleDocumentType {
+  RC
+  INSURANCE
+  FITNESS
+  PERMIT
+  PUC
+}
+
+enum BillStatus {
+  GENERATED
+  SUBMITTED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  COMPLETED
+  CANCELLED
+}
+
+enum SubmissionReason {
+  INITIAL
+  REISSUE
+}
+
+enum ActivitySource {
+  UI
+  API
+  SYSTEM
+  MIGRATION
+}
+
+enum SequenceKey {
+  TRIP
+  BILL
+  SUBMISSION
+  PAYMENT
+}
+
+// -----------------------------------------------------------------------------
+// MODELS
+// -----------------------------------------------------------------------------
+
+model FinancialYear {
+  id           String   @id @default(uuid()) @db.Uuid
+  display_name String   @db.VarChar(20)
+  start_date   DateTime @db.Date
+  end_date     DateTime @db.Date
+  is_active    Boolean
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+
+  // Relationships
+  number_sequences NumberSequence[]
+  trips            Trip[]
+  bills            Bill[]
+  submissions      Submission[]
+  payment_allocations PaymentAllocation[]
+
+  @@map("financial_years")
+}
+
+model NumberSequence {
+  id                String      @id @default(uuid()) @db.Uuid
+  financial_year_id String      @db.Uuid
+  sequence_key      SequenceKey
+  prefix            String      @db.VarChar(10)
+  last_number       Int
+
+  // Relationships
+  financial_year FinancialYear @relation(fields: [financial_year_id], references: [id], onDelete: Restrict)
+
+  @@unique([financial_year_id, sequence_key])
+  @@map("number_sequences")
+}
+
+model User {
+  id            String     @id @default(uuid()) @db.Uuid
+  full_name     String     @db.VarChar(120)
+  mobile        String?    @db.VarChar(20)
+  username      String     @unique @db.VarChar(80)
+  password_hash String     @db.Text
+  role          UserRole
+  status        UserStatus
+  created_at    DateTime   @default(now()) @db.Timestamp(6)
+  updated_at    DateTime   @updatedAt @db.Timestamp(6)
+
+  // Relationships
+  settings_updated    Setting[]
+  trips_created       Trip[] @relation("TripCreator")
+  trips_updated       Trip[] @relation("TripUpdater")
+  bills_created       Bill[] @relation("BillCreator")
+  bill_trips_linked   BillTrip[] @relation("BillTripLinker")
+  submissions_created Submission[] @relation("SubmissionCreator")
+  payments_recorded   Payment[] @relation("PaymentRecorder")
+  activity_logs       ActivityLog[] @relation("ActivityLogUser")
+  vehicle_docs_uploaded VehicleDocument[] @relation("VehicleDocumentUploader")
+  expenses_created    TripExpense[] @relation("TripExpenseCreator")
+  trip_docs_uploaded  TripDocument[] @relation("TripDocumentUploader")
+  trip_files_uploaded TripDocumentFile[] @relation("TripDocumentFileUploader")
+
+  @@index([mobile])
+  @@map("users")
+}
+
+model Setting {
+  id            String   @id @default(uuid()) @db.Uuid
+  setting_key   String   @unique @db.VarChar(120)
+  setting_value String?  @db.Text
+  category      String   @db.VarChar(50)
+  description   String?  @db.Text
+  updated_by    String?  @db.Uuid
+  updated_at    DateTime @updatedAt @db.Timestamp(6)
+
+  // Relationships
+  updated_by_user User? @relation(fields: [updated_by], references: [id], onDelete: Restrict)
+
+  @@map("settings")
+}
+
+model Party {
+  id             String       @id @default(uuid()) @db.Uuid
+  party_name     String       @db.VarChar(200)
+  party_type     PartyType
+  gst_number     String?      @unique @db.VarChar(20)
+  contact_person String?      @db.VarChar(120)
+  mobile         String?      @db.VarChar(20)
+  email          String?      @db.VarChar(120)
+  address        String?      @db.Text
+  city           String?      @db.VarChar(120)
+  state          String?      @db.VarChar(120)
+  billing_type   BillingType?
+  payment_type   PaymentType?
+  is_active      Boolean
+  created_at     DateTime     @default(now()) @db.Timestamp(6)
+  updated_at     DateTime     @updatedAt @db.Timestamp(6)
+
+  trips          Trip[]
+  bills          Bill[]
+  submissions    Submission[]
+  payments       Payment[]
+
+  @@index([party_name])
+  @@index([mobile])
+  @@map("parties")
+}
+
+model VehicleDirectory {
+  id             String   @id @default(uuid()) @db.Uuid
+  vehicle_number String   @unique @db.VarChar(30)
+  owner_name     String   @db.VarChar(150)
+  owner_mobile   String   @db.VarChar(20)
+  is_active      Boolean
+  created_at     DateTime @default(now()) @db.Timestamp(6)
+  updated_at     DateTime @updatedAt @db.Timestamp(6)
+
+  @@index([owner_mobile])
+  @@index([owner_name])
+  @@map("vehicle_directory")
+}
+
+model OwnVehicle {
+  id                 String        @id @default(uuid()) @db.Uuid
+  vehicle_number     String        @unique @db.VarChar(30)
+  vehicle_type       String?       @db.VarChar(80)
+  brand              String?       @db.VarChar(80)
+  model              String?       @db.VarChar(80)
+  manufacturing_year Int?
+  chassis_number     String?       @db.VarChar(100)
+  engine_number      String?       @db.VarChar(100)
+  registration_date  DateTime?     @db.Date
+  purchase_date      DateTime?     @db.Date
+  status             VehicleStatus
+  created_at         DateTime      @default(now()) @db.Timestamp(6)
+  updated_at         DateTime      @updatedAt @db.Timestamp(6)
+
+  // Relationships
+  documents          VehicleDocument[]
+
+  @@index([status])
+  @@map("own_vehicles")
+}
+
+model VehicleDocument {
+  id                 String              @id @default(uuid()) @db.Uuid
+  own_vehicle_id     String              @db.Uuid
+  document_type      VehicleDocumentType
+  document_number    String?             @db.VarChar(120)
+  issue_date         DateTime?           @db.Date
+  expiry_date        DateTime?           @db.Date
+  remarks            String?             @db.Text
+  imagekit_file_id   String              @db.VarChar(255)
+  imagekit_url       String              @db.Text
+  file_name          String              @db.VarChar(255)
+  mime_type          String?             @db.VarChar(100)
+  file_size          BigInt?
+  uploaded_by        String              @db.Uuid
+  uploaded_at        DateTime            @default(now()) @db.Timestamp(6)
+
+  // Relationships
+  own_vehicle        OwnVehicle          @relation(fields: [own_vehicle_id], references: [id], onDelete: Cascade)
+  uploader           User                @relation("VehicleDocumentUploader", fields: [uploaded_by], references: [id], onDelete: Restrict)
+
+  @@index([own_vehicle_id])
+  @@index([document_type])
+  @@index([expiry_date])
+  @@map("vehicle_documents")
+}
+
+model Trip {
+  id                            String       @id @default(uuid()) @db.Uuid
+  trip_number                   String       @unique @db.VarChar(30)
+  financial_year_id             String       @db.Uuid
+  customer_type                 CustomerType
+  vehicle_type                  VehicleType
+  status                        TripStatus
+  
+  loading_date                  DateTime     @db.Date
+  unloading_date                DateTime?    @db.Date
+  pod_received_date             DateTime?    @db.Date
+  bill_generated_date           DateTime?    @db.Date
+  submission_date               DateTime?    @db.Date
+  payment_completed_date        DateTime?    @db.Date
+
+  party_id                      String       @db.Uuid
+  party_name_snapshot           String       @db.VarChar(200)
+  gst_number_snapshot           String?      @db.VarChar(20)
+
+  from_city                     String       @db.VarChar(120)
+  to_city                       String       @db.VarChar(120)
+
+  vehicle_number                String       @db.VarChar(30)
+  driver_mobile                 String       @db.VarChar(20)
+
+  vehicle_owner_name_snapshot   String?      @db.VarChar(150)
+  vehicle_owner_mobile_snapshot String?      @db.VarChar(20)
+
+  weight                        Decimal?     @db.Decimal(10, 2)
+  freight_rate                  Decimal      @db.Decimal(12, 2)
+  vehicle_rate                  Decimal?     @db.Decimal(12, 2)
+  lr_number                     String?      @db.VarChar(80)
+
+  customer_advance              Decimal      @db.Decimal(12, 2)
+  customer_balance              Decimal      @db.Decimal(12, 2)
+  owner_advance                 Decimal?     @db.Decimal(12, 2)
+  owner_balance                 Decimal?     @db.Decimal(12, 2)
+  detention                     Decimal?     @db.Decimal(12, 2)
+  deduction                     Decimal?     @db.Decimal(12, 2)
+
+  revenue                       Decimal      @db.Decimal(12, 2)
+  expense                       Decimal      @db.Decimal(12, 2)
+  profit                        Decimal      @db.Decimal(12, 2)
+
+  bill_id                       String?      @db.Uuid
+  snapshot_version              Int          @default(1)
+  remarks                       String?      @db.Text
+
+  created_by                    String       @db.Uuid
+  updated_by                    String?      @db.Uuid
+  created_at                    DateTime     @default(now()) @db.Timestamp(6)
+  updated_at                    DateTime     @updatedAt @db.Timestamp(6)
+  deleted_at                    DateTime?    @db.Timestamp(6)
+
+  financial_year                FinancialYear @relation(fields: [financial_year_id], references: [id], onDelete: Restrict)
+  party                         Party         @relation(fields: [party_id], references: [id], onDelete: Restrict)
+  creator                       User          @relation("TripCreator", fields: [created_by], references: [id], onDelete: Restrict)
+  updater                       User?         @relation("TripUpdater", fields: [updated_by], references: [id], onDelete: Restrict)
+  bill                          Bill?         @relation(fields: [bill_id], references: [id], onDelete: Restrict)
+
+  expenses                      TripExpense[]
+  documents                     TripDocument[]
+  bill_trips                    BillTrip[]
+
+  @@index([financial_year_id])
+  @@index([party_id])
+  @@index([created_by])
+  @@index([updated_by])
+  @@index([loading_date])
+  @@index([unloading_date])
+  @@index([pod_received_date])
+  @@index([status])
+  @@index([customer_type])
+  @@index([vehicle_type])
+  @@index([vehicle_number])
+  @@index([driver_mobile])
+  @@index([lr_number])
+  @@index([from_city])
+  @@index([to_city])
+  @@map("trips")
+}
+
+model TripExpense {
+  id           String      @id @default(uuid()) @db.Uuid
+  trip_id      String      @db.Uuid
+  expense_type ExpenseType
+  amount       Decimal     @db.Decimal(12, 2)
+  expense_date DateTime    @db.Date
+  remarks      String?     @db.Text
+  created_by   String      @db.Uuid
+  created_at   DateTime    @default(now()) @db.Timestamp(6)
+
+  // Relationships
+  trip         Trip        @relation(fields: [trip_id], references: [id], onDelete: Restrict)
+  creator      User        @relation("TripExpenseCreator", fields: [created_by], references: [id], onDelete: Restrict)
+
+  @@index([trip_id])
+  @@index([expense_type])
+  @@index([expense_date])
+  @@map("trip_expenses")
+}
+
+model TripDocument {
+  id            String       @id @default(uuid()) @db.Uuid
+  trip_id       String       @db.Uuid
+  document_type DocumentType
+  remarks       String?      @db.Text
+  uploaded_by   String       @db.Uuid
+  created_at    DateTime     @default(now()) @db.Timestamp(6)
+
+  // Relationships
+  trip          Trip         @relation(fields: [trip_id], references: [id], onDelete: Restrict)
+  files         TripDocumentFile[]
+  uploader      User         @relation("TripDocumentUploader", fields: [uploaded_by], references: [id], onDelete: Restrict)
+
+  @@index([trip_id])
+  @@index([document_type])
+  @@map("trip_documents")
+}
+
+model TripDocumentFile {
+  id                 String       @id @default(uuid()) @db.Uuid
+  document_id        String       @db.Uuid
+  original_file_name String       @db.VarChar(255)
+  imagekit_file_id   String       @db.VarChar(255)
+  imagekit_url       String       @db.Text
+  thumbnail_url      String?      @db.Text
+  mime_type          String?      @db.VarChar(100)
+  file_size          BigInt?
+  display_order      Int
+  uploaded_by        String       @db.Uuid
+  uploaded_at        DateTime     @default(now()) @db.Timestamp(6)
+
+  // Relationships
+  document           TripDocument @relation(fields: [document_id], references: [id], onDelete: Restrict)
+  uploader           User         @relation("TripDocumentFileUploader", fields: [uploaded_by], references: [id], onDelete: Restrict)
+
+  @@index([document_id])
+  @@index([display_order])
+  @@map("trip_document_files")
+}
+
+model Bill {
+  id                String       @id @default(uuid()) @db.Uuid
+  bill_number       String       @db.VarChar(10)
+  financial_year_id String       @db.Uuid
+  party_id          String       @db.Uuid
+  bill_type         BillingType
+  bill_date         DateTime     @db.Date
+  digital_signature Boolean
+  total_amount      Decimal      @db.Decimal(12, 2)
+  status            BillStatus
+
+  party_name_snapshot      String  @db.VarChar(200)
+  gst_number_snapshot      String? @db.VarChar(20)
+  billing_address_snapshot String? @db.Text
+
+  created_by        String       @db.Uuid
+  created_at        DateTime     @default(now()) @db.Timestamp(6)
+
+  // Relationships
+  financial_year    FinancialYear @relation(fields: [financial_year_id], references: [id], onDelete: Restrict)
+  party             Party         @relation(fields: [party_id], references: [id], onDelete: Restrict)
+  creator           User          @relation("BillCreator", fields: [created_by], references: [id], onDelete: Restrict)
+  
+  trips               Trip[]
+  bill_trips          BillTrip[]
+  submission_bills    SubmissionBill[]
+  payment_allocations PaymentAllocation[]
+
+  @@unique([financial_year_id, bill_number])
+  @@map("bills")
+}
+
+model BillTrip {
+  id        String   @id @default(uuid()) @db.Uuid
+  bill_id   String   @db.Uuid
+  trip_id   String   @db.Uuid
+  linked_by String   @db.Uuid
+  linked_at DateTime @default(now()) @db.Timestamp(6)
+
+  // Relationships
+  bill      Bill     @relation(fields: [bill_id], references: [id], onDelete: Restrict)
+  trip      Trip     @relation(fields: [trip_id], references: [id], onDelete: Restrict)
+  linker    User     @relation("BillTripLinker", fields: [linked_by], references: [id], onDelete: Restrict)
+
+  @@unique([bill_id, trip_id])
+  @@index([bill_id])
+  @@index([trip_id])
+  @@map("bill_trips")
+}
+
+model Submission {
+  id                String       @id @default(uuid()) @db.Uuid
+  submission_number String       @unique @db.VarChar(30)
+  financial_year_id String       @db.Uuid
+  party_id          String       @db.Uuid
+  submission_date   DateTime     @db.Date
+  remarks           String?      @db.Text
+  created_by        String       @db.Uuid
+  created_at        DateTime     @default(now()) @db.Timestamp(6)
+
+  // Relationships
+  financial_year    FinancialYear    @relation(fields: [financial_year_id], references: [id], onDelete: Restrict)
+  party             Party            @relation(fields: [party_id], references: [id], onDelete: Restrict)
+  creator           User             @relation("SubmissionCreator", fields: [created_by], references: [id], onDelete: Restrict)
+  submission_bills  SubmissionBill[]
+
+  @@index([party_id])
+  @@index([submission_date])
+  @@map("submissions")
+}
+
+model SubmissionBill {
+  id                String           @id @default(uuid()) @db.Uuid
+  submission_id     String           @db.Uuid
+  bill_id           String           @db.Uuid
+  submission_reason SubmissionReason
+  linked_at         DateTime         @default(now()) @db.Timestamp(6)
+
+  // Relationships
+  submission        Submission       @relation(fields: [submission_id], references: [id], onDelete: Restrict)
+  bill              Bill             @relation(fields: [bill_id], references: [id], onDelete: Restrict)
+
+  @@index([submission_id])
+  @@index([bill_id])
+  @@map("submission_bills")
+}
+
+model Payment {
+  id               String        @id @default(uuid()) @db.Uuid
+  payment_number   String        @unique @db.VarChar(30)
+  party_id         String        @db.Uuid
+  payment_type     PaymentType
+  amount           Decimal       @db.Decimal(12, 2)
+  payment_date     DateTime      @db.Date
+  reference_number String        @db.VarChar(100)
+  remarks          String?       @db.Text
+  status           PaymentStatus @default(COMPLETED)
+  created_by       String        @db.Uuid
+  created_at       DateTime      @default(now()) @db.Timestamp(6)
+
+  // Relationships
+  party               Party               @relation(fields: [party_id], references: [id], onDelete: Restrict)
+  creator             User                @relation("PaymentRecorder", fields: [created_by], references: [id], onDelete: Restrict)
+  payment_allocations PaymentAllocation[]
+
+  @@index([payment_date])
+  @@index([reference_number])
+  @@index([party_id])
+  @@map("payments")
+}
+
+model PaymentAllocation {
+  id                String    @id @default(uuid()) @db.Uuid
+  payment_id        String    @db.Uuid
+  bill_id           String?   @db.Uuid
+  financial_year_id String    @db.Uuid
+  allocation_month  DateTime? @db.Date
+  allocated_amount  Decimal   @db.Decimal(12, 2)
+  allocation_order  Int
+  created_at        DateTime  @default(now()) @db.Timestamp(6)
+
+  // Relationships
+  payment        Payment       @relation(fields: [payment_id], references: [id], onDelete: Restrict)
+  bill           Bill?         @relation(fields: [bill_id], references: [id], onDelete: Restrict)
+  financial_year FinancialYear @relation(fields: [financial_year_id], references: [id], onDelete: Restrict)
+
+  @@index([payment_id])
+  @@index([bill_id])
+  @@map("payment_allocations")
+}
+
+model ActivityLog {
+  id          String         @id @default(uuid()) @db.Uuid
+  user_id     String?        @db.Uuid
+  source      ActivitySource
+  module      String         @db.VarChar(80)
+  entity_type String         @db.VarChar(80)
+  entity_id   String?        @db.Uuid
+  action      String         @db.VarChar(80)
+  description String?        @db.Text
+  created_at  DateTime       @default(now()) @db.Timestamp(6)
+
+  // Relationships
+  user User? @relation("ActivityLogUser", fields: [user_id], references: [id], onDelete: Restrict)
+
+  @@index([user_id])
+  @@index([module])
+  @@index([entity_type])
+  @@index([entity_id])
+  @@index([created_at])
+  @@map("activity_logs")
+}
+
+model IdempotencyKey {
+  id              String   @id @default(uuid()) @db.Uuid
+  key             String   @unique @db.VarChar(100)
+  request_path    String   @db.VarChar(255)
+  response_body   Json?
+  response_status Int?
+  created_at      DateTime @default(now()) @db.Timestamp(6)
+  
+  @@map("idempotency_keys")
+}
+
