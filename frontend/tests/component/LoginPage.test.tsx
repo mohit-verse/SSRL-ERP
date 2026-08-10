@@ -4,7 +4,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { LoginPage } from '../../src/pages/LoginPage';
-import { AuthProvider } from '../../src/contexts/AuthContext';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as authHook from '../../src/hooks/useAuth';

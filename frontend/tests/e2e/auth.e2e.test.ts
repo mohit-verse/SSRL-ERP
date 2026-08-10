@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import axios from 'axios';
 
 // Note: These tests assume a running backend environment at localhost:3000

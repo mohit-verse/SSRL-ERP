@@ -40,7 +40,11 @@ export const UserFormPage: React.FC = () => {
     try {
       if (isEdit) {
         // Exclude password and username from update
-        const { username, password, ...updateData } = data;
+        const updateData = {
+          full_name: data.full_name,
+          mobile: data.mobile,
+          role: data.role,
+        };
         await updateMutation.mutateAsync(updateData);
         toast.success('User updated successfully');
       } else {
