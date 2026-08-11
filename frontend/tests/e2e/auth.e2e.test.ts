@@ -27,15 +27,15 @@ describe('E2E: Authentication Flow', () => {
       password: 'password123',
     });
     expect(res.status).toBe(200);
-    expect(res.data.data).toHaveProperty('token');
-    token = res.data.data.token;
+    expect(res.data.data).toHaveProperty('accessToken');
+    token = res.data.data.accessToken;
   });
 
   it('should fetch user profile with token', async () => {
     const res = await axios.get(`${API_URL}/auth/me`, {
       headers: { Authorization: `Bearer ${token}` }
     });
-    
+
     expect(res.status).toBe(200);
     expect(res.data.data).toHaveProperty('username');
   });
