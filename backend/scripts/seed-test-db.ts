@@ -46,7 +46,7 @@ async function seed() {
   // Create Users
   const passwordHash = await bcrypt.hash('password123', 10);
   
-  const superadmin = await prisma.user.create({
+  await prisma.user.create({
     data: {
       id: '00000000-0000-0000-0000-000000000001',
       username: 'superadmin',
@@ -91,7 +91,7 @@ async function seed() {
   });
 
   // Create Party
-  const party = await prisma.party.create({
+  await prisma.party.create({
     data: {
       id: '00000000-0000-0000-0000-000000000004',
       party_name: 'TEST MARKET PARTY',

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import usersRoutes from './modules/users/users.routes';
+import authRoutes from './modules/auth/auth.routes';
 import settingsRoutes from './modules/settings/settings.routes';
 import financialYearsRoutes from './modules/financial-years/financial-years.routes';
 import numberSequencesRoutes from './modules/number-sequences/number-sequences.routes';
@@ -16,6 +17,7 @@ import reportsRoutes from './modules/reports/reports.routes';
 
 const router = Router();
 
+router.use('/auth', authRoutes);
 router.use('/users', usersRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/financial-years', financialYearsRoutes);

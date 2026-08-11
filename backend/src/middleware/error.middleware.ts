@@ -5,12 +5,7 @@ import { config } from '../config/env';
 import * as responseHelper from '../utils/response';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const globalErrorHandler = (
-  err: unknown,
-  req: Request,
-  res: Response,
-  _next: NextFunction,
-) => {
+export const globalErrorHandler = (err: unknown, req: Request, res: Response, next: NextFunction) => {
   logger.error(`Error processing request ${req.method} ${req.path}`, err);
 
   if (err instanceof ValidationError) {
