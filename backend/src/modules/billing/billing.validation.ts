@@ -23,3 +23,12 @@ export const cancelBillSchema = z.object({
     reason: z.string().min(1),
   }),
 });
+
+export const downloadPdfSchema = z.object({
+  params: z.object({
+    id: z.string().uuid(),
+  }),
+  query: z.object({
+    orientation: z.enum(['portrait', 'landscape']),
+  }),
+});

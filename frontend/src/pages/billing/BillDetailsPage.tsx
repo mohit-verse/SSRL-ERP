@@ -5,6 +5,7 @@ import { Button } from '../../components/form/Button';
 import { BillStatusBadge } from './components/BillStatusBadge';
 import { BillCancellationDialog } from './components/BillCancellationDialog';
 import { ROUTES } from '../../constants';
+import { billingApi } from '../../features/billing/billing.api';
 
 export const BillDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +32,40 @@ export const BillDetailsPage: React.FC = () => {
         </div>
         
         <div className="flex gap-2">
+          <Button variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700" onClick={async () => {
+            try {
+              const blob = await billingApi.downloadPdf(bill.id, 'portrait');
+              const url = window.URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.setAttribute('download', `Bill_${bill.bill_number}_Portrait.pdf`);
+              document.body.appendChild(link);
+              link.click();
+              link.parentNode?.removeChild(link);
+            } catch (error) {
+              console.error('Failed to download PDF', error);
+            }
+          }}>
+            A4 Portrait
+          </Button>
+
+          <Button variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700" onClick={async () => {
+            try {
+              const blob = await billingApi.downloadPdf(bill.id, 'landscape');
+              const url = window.URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.setAttribute('download', `Bill_${bill.bill_number}_Landscape.pdf`);
+              document.body.appendChild(link);
+              link.click();
+              link.parentNode?.removeChild(link);
+            } catch (error) {
+              console.error('Failed to download PDF', error);
+            }
+          }}>
+            A4 Landscape
+          </Button>
+
           {bill.status !== 'CANCELLED' && (
             <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700" onClick={() => setIsCancelModalOpen(true)}>
               Cancel Bill

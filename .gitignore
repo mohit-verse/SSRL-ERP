@@ -7,3 +7,13 @@ build/
 coverage/
 .tauri/
 src-tauri/target/
+
+# Bill PDF test/reference files
+Individual Bill.pdf
+Individual Bill Blank.pdf
+Consolidate Bill.pdf
+Consolidate Blank Bill.pdf
+backend/test_individual_portrait.pdf
+backend/test_individual_landscape.pdf
+backend/test_consolidate_portrait.pdf
+backend/test_consolidate_landscape.pdf

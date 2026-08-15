@@ -196,4 +196,29 @@ export class BillingService {
       return updatedBill;
     });
   }
+
+  static async getBillWithFullHierarchy(id: string) {
+    const bill = await prisma.bill.findUnique({
+      where: { id },
+      include: {
+        party: true,
+        bill_trips: {
+          include: {
+            trip: true,
+          },
+          orderBy: {
+            trip: {
+              loading_date: 'asc',
+            },
+          },
+        },
+      },
+    });
+
+    if (!bill) {
+      throw new NotFoundError('Bill not found');
+    }
+
+    return bill;
+  }
 }

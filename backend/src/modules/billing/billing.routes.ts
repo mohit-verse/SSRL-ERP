@@ -3,7 +3,7 @@ import { BillingController } from './billing.controller';
 import { validateRequest } from '../../middleware/validate.middleware';
 import { authenticate, authorize } from '../../middleware/auth.middleware';
 import { idempotency } from '../../middleware/idempotency.middleware';
-import { getEligibleTripsSchema, generateBillSchema, cancelBillSchema } from './billing.validation';
+import { getEligibleTripsSchema, generateBillSchema, cancelBillSchema, downloadPdfSchema } from './billing.validation';
 import { UserRole } from '@prisma/client';
 
 const router = Router();
@@ -25,5 +25,7 @@ router.post(
 router.get('/', BillingController.list);
 router.get('/:id', BillingController.get);
 router.post('/:id/cancel', validateRequest(cancelBillSchema), BillingController.cancel);
+router.get('/:id/pdf', validateRequest(downloadPdfSchema), BillingController.downloadPdf);
+
 
 export default router;

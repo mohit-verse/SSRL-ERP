@@ -47,4 +47,12 @@ export const billingApi = {
     });
     return response.data;
   },
+
+  downloadPdf: async (id: string, orientation: 'portrait' | 'landscape') => {
+    const response = await apiClient.get(`/bills/${id}/pdf`, {
+      params: { orientation },
+      responseType: 'blob', // Important for file download
+    });
+    return response.data as Blob;
+  },
 };

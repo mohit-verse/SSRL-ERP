@@ -3,6 +3,7 @@ import { BillingService } from './billing.service';
 import * as responseHelper from '../../utils/response';
 import { getPaginationOptions, buildPaginatedResult } from '../../utils/pagination';
 import { BillingType } from '@prisma/client';
+import { BillPdfService } from '../../services/pdf/bill-pdf.service';
 
 export class BillingController {
   static async getEligibleTrips(req: Request, res: Response, next: NextFunction) {
@@ -54,6 +55,27 @@ export class BillingController {
     try {
       const bill = await BillingService.cancelBill(req.params.id, req.body, req.user!.userId);
       return responseHelper.success(res, bill, 'Bill cancelled successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async downloadPdf(req: Request, res: Response, next: NextFunction) {
+    try {
+      const orientation = req.query.orientation as 'portrait' | 'landscape';
+      const billId = req.params.id;
+
+      // Ensure the bill and full hierarchy exists and fetch it
+      const billDetails = await BillingService.getBillWithFullHierarchy(billId);
+
+      const buffer = await BillPdfService.generateBillPdf(billDetails, orientation);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename=Bill_${billDetails.bill_number}.pdf`,
+      );
+      return res.send(buffer);
     } catch (error) {
       next(error);
     }
