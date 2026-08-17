@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 import { config } from './config/env';
 import { globalErrorHandler } from './middleware/error.middleware';
 import { logger } from './utils/logger';
@@ -6,8 +7,26 @@ import { logger } from './utils/logger';
 const app = express();
 const port = config.port;
 
-app.use(express.json());
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://tauri.localhost',
+  'tauri://localhost'
+];
 
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+}));
+
+app.use(express.json());
 // Request logger middleware
 app.use((req, res, next) => {
   logger.info(`Incoming request: ${req.method} ${req.url}`);

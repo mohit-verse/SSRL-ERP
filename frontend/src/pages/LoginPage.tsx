@@ -41,6 +41,10 @@ export const LoginPage: React.FC = () => {
       },
       onError: (error) => {
         if (error instanceof AxiosError) {
+          if (!error.response) {
+            setGlobalError('Network Error: Unable to connect to the server. Please check your internet connection or backend configuration.');
+            return;
+          }
           const authError = error.response?.data as AuthError;
           setGlobalError(authError?.message || 'Invalid username or password');
         } else {
