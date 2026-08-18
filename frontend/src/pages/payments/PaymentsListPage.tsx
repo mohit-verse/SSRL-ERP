@@ -8,8 +8,10 @@ import { Button } from '../../components/form/Button';
 import { TextInput } from '../../components/form/TextInput';
 import { ROUTES } from '../../constants';
 import { PaymentStatusBadge } from './components/PaymentStatusBadge';
+import { useAuth } from '../../hooks/useAuth';
 
 export const PaymentsListPage: React.FC = () => {
+  const { hasRole } = useAuth();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   
@@ -38,9 +40,11 @@ export const PaymentsListPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Payments</h1>
-        <Link to={ROUTES.PROTECTED.PAYMENTS_CREATE}>
-          <Button>Record Payment</Button>
-        </Link>
+        {!hasRole('CA') && (
+          <Link to={ROUTES.PROTECTED.PAYMENTS_CREATE}>
+            <Button>Record Payment</Button>
+          </Link>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-4 items-end mb-6 bg-white dark:bg-gray-900 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800">

@@ -10,7 +10,10 @@ import { TripFilters } from './components/TripFilters';
 import { TripStatusBadge } from './components/TripStatusBadge';
 import { toast } from 'sonner';
 
+import { useAuth } from '../../hooks/useAuth';
+
 export const TripsListPage: React.FC = () => {
+  const { hasRole } = useAuth();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
@@ -63,7 +66,7 @@ export const TripsListPage: React.FC = () => {
       </div>
     )},
     { key: 'status', header: 'Status', cell: (item) => <TripStatusBadge status={item.status} /> },
-    { key: 'actions', header: 'Actions', cell: (item) => (
+    ...(!hasRole('CA') ? [{ key: 'actions', header: 'Actions', cell: (item: Trip) => (
       <Button 
         variant="ghost" 
         size="sm" 
@@ -72,16 +75,18 @@ export const TripsListPage: React.FC = () => {
       >
         {item.deleted_at ? 'Restore' : 'Delete'}
       </Button>
-    )}
+    )}] : [])
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Trips</h1>
-        <Link to={`${ROUTES.PROTECTED.TRIPS}/new`}>
-          <Button>Create Trip</Button>
-        </Link>
+        {!hasRole('CA') && (
+          <Link to={`${ROUTES.PROTECTED.TRIPS}/new`}>
+            <Button>Create Trip</Button>
+          </Link>
+        )}
       </div>
 
       <TripFilters 

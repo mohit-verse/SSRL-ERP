@@ -32,8 +32,21 @@ export const authorize = (...allowedRoles: string[]) => {
       return next(new AuthenticationError('Authentication required'));
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    const isCA = req.user.role === 'CA';
+    const isAllowedRole = allowedRoles.includes(req.user.role);
+
+    if (!isAllowedRole) {
       return next(new AuthorizationError('Insufficient permissions'));
+    }
+
+    if (isCA) {
+      const isReadOperation = ['GET', 'OPTIONS'].includes(req.method);
+      // specific non-mutation POST operations that the CA can access
+      const isAllowedPost = req.method === 'POST' && (req.baseUrl.includes('/reports/') || req.baseUrl.includes('/auth/'));
+
+      if (!isReadOperation && !isAllowedPost) {
+        return next(new AuthorizationError('CA users are not allowed to perform mutations'));
+      }
     }
 
     next();

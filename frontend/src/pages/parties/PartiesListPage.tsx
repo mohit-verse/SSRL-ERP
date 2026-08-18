@@ -7,8 +7,10 @@ import { TextInput } from '../../components/form/TextInput';
 import { Button } from '../../components/form/Button';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useAuth } from '../../hooks/useAuth';
 
 export const PartiesListPage: React.FC = () => {
+  const { hasRole } = useAuth();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 500);
@@ -50,7 +52,7 @@ export const PartiesListPage: React.FC = () => {
         {item.is_active ? 'Active' : 'Inactive'}
       </span>
     )},
-    { key: 'actions', header: 'Actions', cell: (item) => (
+    ...(!hasRole('CA') ? [{ key: 'actions', header: 'Actions', cell: (item: Party) => (
       <Button 
         variant="ghost" 
         size="sm" 
@@ -59,16 +61,18 @@ export const PartiesListPage: React.FC = () => {
       >
         {item.is_active ? 'Deactivate' : 'Activate'}
       </Button>
-    )}
+    )}] : [])
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Parties</h1>
-        <Link to="/master-data/parties/new">
-          <Button>Create Party</Button>
-        </Link>
+        {!hasRole('CA') && (
+          <Link to="/master-data/parties/new">
+            <Button>Create Party</Button>
+          </Link>
+        )}
       </div>
 
       <div className="flex gap-4 mb-4">

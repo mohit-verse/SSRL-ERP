@@ -5,7 +5,7 @@ export const userFormSchema = z.object({
   mobile: z.string().max(20).optional().nullable(),
   username: z.string().min(3, 'Username must be at least 3 characters').max(80),
   password: z.string().min(8, 'Password must be at least 8 characters').optional(),
-  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'USER']),
+  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'USER', 'CA']),
 });
 
 export type UserFormValues = z.infer<typeof userFormSchema>;

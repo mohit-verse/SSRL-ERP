@@ -6,44 +6,44 @@ import { cn } from '../../utils/cn';
 import { useAuth } from '../../hooks/useAuth';
 
 const NAV_ITEMS = [
-  { label: 'Dashboard', path: ROUTES.PROTECTED.DASHBOARD, icon: LayoutDashboard, roles: ['SUPER_ADMIN', 'ADMIN', 'USER'] },
-  { label: 'Trips', path: ROUTES.PROTECTED.TRIPS, icon: Truck, roles: ['SUPER_ADMIN', 'ADMIN', 'USER'] },
+  { label: 'Dashboard', path: ROUTES.PROTECTED.DASHBOARD, icon: LayoutDashboard, roles: ['SUPER_ADMIN', 'ADMIN', 'USER', 'CA'] },
+  { label: 'Trips', path: ROUTES.PROTECTED.TRIPS, icon: Truck, roles: ['SUPER_ADMIN', 'ADMIN', 'USER', 'CA'] },
   { 
     label: 'Billing', 
     icon: FileText, 
-    roles: ['SUPER_ADMIN', 'ADMIN', 'USER'],
+    roles: ['SUPER_ADMIN', 'ADMIN', 'USER', 'CA'],
     subItems: [
-      { label: 'Generate Bill', path: ROUTES.PROTECTED.BILLING, icon: FileText },
-      { label: 'All Bills', path: ROUTES.PROTECTED.BILLS, icon: List },
+      { label: 'Generate Bill', path: ROUTES.PROTECTED.BILLING, icon: FileText, roles: ['SUPER_ADMIN', 'ADMIN', 'USER'] },
+      { label: 'All Bills', path: ROUTES.PROTECTED.BILLS, icon: List, roles: ['SUPER_ADMIN', 'ADMIN', 'USER', 'CA'] },
     ]
   },
   { 
     label: 'Payments', 
     icon: FileSpreadsheet, 
-    roles: ['SUPER_ADMIN', 'ADMIN', 'USER'],
+    roles: ['SUPER_ADMIN', 'ADMIN', 'USER', 'CA'],
     subItems: [
-      { label: 'Record Payment', path: ROUTES.PROTECTED.PAYMENTS_CREATE, icon: FileSpreadsheet },
-      { label: 'All Payments', path: ROUTES.PROTECTED.PAYMENTS, icon: List },
+      { label: 'Record Payment', path: ROUTES.PROTECTED.PAYMENTS_CREATE, icon: FileSpreadsheet, roles: ['SUPER_ADMIN', 'ADMIN', 'USER'] },
+      { label: 'All Payments', path: ROUTES.PROTECTED.PAYMENTS, icon: List, roles: ['SUPER_ADMIN', 'ADMIN', 'USER', 'CA'] },
     ]
   },
-  { label: 'Reports Hub', path: ROUTES.PROTECTED.REPORTS, icon: TrendingUp, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { label: 'Reports Hub', path: ROUTES.PROTECTED.REPORTS, icon: TrendingUp, roles: ['SUPER_ADMIN', 'ADMIN', 'CA'] },
   { 
     label: 'Master Data', 
     icon: Database, 
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ['SUPER_ADMIN', 'ADMIN', 'CA'],
     subItems: [
-      { label: 'Parties', path: ROUTES.PROTECTED.MASTER_DATA_PARTIES, icon: Users },
-      { label: 'Vehicle Directory', path: ROUTES.PROTECTED.MASTER_DATA_VEHICLE_DIRECTORY, icon: List },
-      { label: 'Own Fleet', path: ROUTES.PROTECTED.MASTER_DATA_OWN_FLEET, icon: Car },
+      { label: 'Parties', path: ROUTES.PROTECTED.MASTER_DATA_PARTIES, icon: Users, roles: ['SUPER_ADMIN', 'ADMIN', 'CA'] },
+      { label: 'Vehicle Directory', path: ROUTES.PROTECTED.MASTER_DATA_VEHICLE_DIRECTORY, icon: List, roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { label: 'Own Fleet', path: ROUTES.PROTECTED.MASTER_DATA_OWN_FLEET, icon: Car, roles: ['SUPER_ADMIN', 'ADMIN'] },
     ]
   },
   { 
     label: 'Submissions', 
     icon: FileText, 
-    roles: ['SUPER_ADMIN', 'ADMIN', 'USER'],
+    roles: ['SUPER_ADMIN', 'ADMIN', 'USER', 'CA'],
     subItems: [
-      { label: 'Create Submission', path: ROUTES.PROTECTED.SUBMISSIONS_CREATE, icon: FileText },
-      { label: 'All Submissions', path: ROUTES.PROTECTED.SUBMISSIONS, icon: List },
+      { label: 'Create Submission', path: ROUTES.PROTECTED.SUBMISSIONS_CREATE, icon: FileText, roles: ['SUPER_ADMIN', 'ADMIN', 'USER'] },
+      { label: 'All Submissions', path: ROUTES.PROTECTED.SUBMISSIONS, icon: List, roles: ['SUPER_ADMIN', 'ADMIN', 'USER', 'CA'] },
     ]
   },
   { label: 'Settings', path: ROUTES.PROTECTED.SETTINGS, icon: Settings, roles: ['SUPER_ADMIN'] },
@@ -88,7 +88,9 @@ export const Sidebar: React.FC = () => {
                   </button>
                   {isOpen && (
                     <ul className="mt-1 space-y-1 pl-10 pr-2">
-                      {item.subItems.map(subItem => (
+                      {item.subItems.map(subItem => {
+                        if (subItem.roles && !hasRole(subItem.roles)) return null;
+                        return (
                         <li key={subItem.path}>
                           <NavLink
                             to={subItem.path}
@@ -105,7 +107,7 @@ export const Sidebar: React.FC = () => {
                             {subItem.label}
                           </NavLink>
                         </li>
-                      ))}
+                      )})}
                     </ul>
                   )}
                 </li>

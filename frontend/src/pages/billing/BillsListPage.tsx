@@ -8,8 +8,10 @@ import { Button } from '../../components/form/Button';
 import { ROUTES } from '../../constants';
 import { BillFilters } from './components/BillFilters';
 import { BillStatusBadge } from './components/BillStatusBadge';
+import { useAuth } from '../../hooks/useAuth';
 
 export const BillsListPage: React.FC = () => {
+  const { hasRole } = useAuth();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   
@@ -38,9 +40,11 @@ export const BillsListPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bills</h1>
-        <Link to={ROUTES.PROTECTED.BILLING}>
-          <Button>Generate New Bill</Button>
-        </Link>
+        {!hasRole('CA') && (
+          <Link to={ROUTES.PROTECTED.BILLING}>
+            <Button>Generate New Bill</Button>
+          </Link>
+        )}
       </div>
 
       <BillFilters 

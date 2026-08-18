@@ -9,7 +9,7 @@ import { UserRole } from '@prisma/client';
 const router = Router();
 
 // According to requirements: SUPER_ADMIN, ADMIN, USER can access billing
-router.use(authenticate, authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.USER));
+router.use(authenticate, authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.USER, UserRole.CA));
 
 router.get(
   '/eligible-trips',

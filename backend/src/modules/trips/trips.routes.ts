@@ -8,7 +8,7 @@ import { UserRole } from '@prisma/client';
 const router = Router();
 
 // According to API.md: SUPER_ADMIN, ADMIN, USER can access trips
-router.use(authenticate, authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.USER));
+router.use(authenticate, authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.USER, UserRole.CA));
 
 router.post('/', validateRequest(createTripSchema), TripsController.create);
 router.get('/', TripsController.list);

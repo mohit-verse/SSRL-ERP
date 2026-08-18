@@ -3,7 +3,7 @@ export interface User {
   username: string;
   full_name: string;
   mobile?: string;
-  role: 'SUPER_ADMIN' | 'ADMIN' | 'USER';
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'USER' | 'CA';
   is_active: boolean;
   created_at: string;
   updated_at: string;

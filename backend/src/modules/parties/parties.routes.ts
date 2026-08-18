@@ -8,7 +8,7 @@ import { UserRole } from '@prisma/client';
 const router = Router();
 
 // Only Super Admin & Admin can manage parties
-router.use(authenticate, authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN));
+router.use(authenticate, authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.CA));
 
 router.post('/', validateRequest(createPartySchema), PartiesController.create);
 router.get('/', PartiesController.list);

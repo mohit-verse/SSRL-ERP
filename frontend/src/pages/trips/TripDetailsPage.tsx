@@ -10,8 +10,10 @@ import { TripExpenseForm } from './components/TripExpenseForm';
 import { Dialog } from '../../components/ui/Dialog';
 import { ROUTES } from '../../constants';
 import { toast } from 'sonner';
+import { useAuth } from '../../hooks/useAuth';
 
 export const TripDetailsPage: React.FC = () => {
+  const { hasRole } = useAuth();
   const { id } = useParams<{ id: string }>();
   const { data: response, isLoading } = useTripQuery(id!);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
@@ -50,14 +52,16 @@ export const TripDetailsPage: React.FC = () => {
         </div>
         
         <div className="flex gap-2">
-          {trip.vehicle_type === 'OWN_FLEET' && (
+          {!hasRole('CA') && trip.vehicle_type === 'OWN_FLEET' && (
             <Button variant="outline" onClick={() => setIsExpenseModalOpen(true)}>
               Add Expense
             </Button>
           )}
-          <Link to={`${ROUTES.PROTECTED.TRIPS}/${trip.id}/edit`}>
-            <Button>Edit Trip</Button>
-          </Link>
+          {!hasRole('CA') && (
+            <Link to={`${ROUTES.PROTECTED.TRIPS}/${trip.id}/edit`}>
+              <Button>Edit Trip</Button>
+            </Link>
+          )}
         </div>
       </div>
 
