@@ -42,7 +42,7 @@ export const authorize = (...allowedRoles: string[]) => {
     if (isCA) {
       const isReadOperation = ['GET', 'OPTIONS'].includes(req.method);
       // specific non-mutation POST operations that the CA can access
-      const isAllowedPost = req.method === 'POST' && (req.baseUrl.includes('/reports/') || req.baseUrl.includes('/auth/'));
+      const isAllowedPost = req.method === 'POST' && (req.baseUrl.includes('/reports') || req.baseUrl.includes('/auth'));
 
       if (!isReadOperation && !isAllowedPost) {
         return next(new AuthorizationError('CA users are not allowed to perform mutations'));

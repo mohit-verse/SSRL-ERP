@@ -214,7 +214,7 @@ describe('E2E: CA Role Authorization', () => {
   // L. CA cannot upload/replace a document.
   it('L. CA cannot upload a document', async () => {
     try {
-      await axios.post(`${API_URL}/uploads`, {
+      await axios.post(`${API_URL}/uploads/session`, {
         file: 'test'
       }, { headers: { Authorization: `Bearer ${caToken}` }});
       expect(true).toBe(false);
