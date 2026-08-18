@@ -18,7 +18,7 @@ export const OutstandingSummary: React.FC<{ outstanding: OutstandingResponse }> 
     <div className="space-y-6">
       <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-lg border border-red-200 dark:border-red-800/50 flex flex-col items-center justify-center">
         <p className="text-sm text-red-700 dark:text-red-300 font-semibold uppercase tracking-wider mb-1">Total Outstanding</p>
-        <p className="text-4xl font-bold text-red-700 dark:text-red-400">₹{totalOutstanding.toFixed(2)}</p>
+        <p className="text-4xl font-bold text-red-700 dark:text-red-400">₹{Number(totalOutstanding).toFixed(2)}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

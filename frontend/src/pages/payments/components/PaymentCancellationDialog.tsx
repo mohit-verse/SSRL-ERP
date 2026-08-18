@@ -71,7 +71,7 @@ export const PaymentCancellationDialog: React.FC<PaymentCancellationDialogProps>
           </div>
           <div className="col-span-2">
             <p className="text-gray-500">Total Amount</p>
-            <p className="font-semibold text-gray-900 dark:text-white">₹{amount.toFixed(2)}</p>
+            <p className="font-semibold text-gray-900 dark:text-white">₹{Number(amount).toFixed(2)}</p>
           </div>
         </div>
         

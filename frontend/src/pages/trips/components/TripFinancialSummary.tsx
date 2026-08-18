@@ -9,33 +9,33 @@ export const TripFinancialSummary: React.FC<{ trip: Trip }> = ({ trip }) => {
         <div>
           <p className="text-sm text-gray-500 dark:text-gray-400">Total Revenue</p>
           <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-            ₹{trip.revenue?.toFixed(2) || '0.00'}
+            ₹{trip.revenue != null ? Number(trip.revenue).toFixed(2) : '0.00'}
           </p>
         </div>
         <div>
           <p className="text-sm text-gray-500 dark:text-gray-400">Total Expense</p>
           <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-            ₹{trip.expense?.toFixed(2) || '0.00'}
+            ₹{trip.expense != null ? Number(trip.expense).toFixed(2) : '0.00'}
           </p>
         </div>
         <div>
           <p className="text-sm text-gray-500 dark:text-gray-400">Calculated Profit</p>
           <p className={`text-xl font-semibold ${trip.profit && trip.profit > 0 ? 'text-green-600' : trip.profit && trip.profit < 0 ? 'text-red-600' : 'text-gray-900 dark:text-gray-100'}`}>
-            ₹{trip.profit?.toFixed(2) || '0.00'}
+            ₹{trip.profit != null ? Number(trip.profit).toFixed(2) : '0.00'}
           </p>
         </div>
         
         <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
           <p className="text-sm text-gray-500 dark:text-gray-400">Customer Balance</p>
           <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-            ₹{trip.customer_balance?.toFixed(2) || '0.00'}
+            ₹{trip.customer_balance != null ? Number(trip.customer_balance).toFixed(2) : '0.00'}
           </p>
         </div>
         
         <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
           <p className="text-sm text-gray-500 dark:text-gray-400">Owner Balance</p>
           <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-            ₹{trip.owner_balance?.toFixed(2) || '0.00'}
+            ₹{trip.owner_balance != null ? Number(trip.owner_balance).toFixed(2) : '0.00'}
           </p>
         </div>
       </div>

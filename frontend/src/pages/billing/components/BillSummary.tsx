@@ -10,7 +10,7 @@ export const BillSummary: React.FC<BillSummaryProps> = ({ selectedTrips, billing
   const tripCount = selectedTrips.length;
   // Note: This is strictly a frontend estimation for UX preview. 
   // The authoritative total is calculated by the backend during generation.
-  const estimatedTotal = selectedTrips.reduce((sum, trip) => sum + (trip.customer_balance || 0), 0);
+  const estimatedTotal = selectedTrips.reduce((sum, trip) => sum + Number(trip.customer_balance || 0), 0);
 
   return (
     <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800 mb-6">

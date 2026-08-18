@@ -81,8 +81,8 @@ export const EligibleTripTable: React.FC<EligibleTripTableProps> = ({
               <td className="px-4 py-3">{trip.from_city} → {trip.to_city}</td>
               <td className="px-4 py-3">{new Date(trip.loading_date).toLocaleDateString()}</td>
               <td className="px-4 py-3">{trip.vehicle_number}</td>
-              <td className="px-4 py-3 text-right">₹{trip.freight_rate?.toFixed(2) || '0.00'}</td>
-              <td className="px-4 py-3 text-right">₹{trip.customer_balance?.toFixed(2) || '0.00'}</td>
+              <td className="px-4 py-3 text-right">₹{trip.freight_rate != null ? Number(trip.freight_rate).toFixed(2) : '0.00'}</td>
+              <td className="px-4 py-3 text-right">₹{trip.customer_balance != null ? Number(trip.customer_balance).toFixed(2) : '0.00'}</td>
             </tr>
           ))}
         </tbody>

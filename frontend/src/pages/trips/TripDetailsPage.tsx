@@ -99,12 +99,12 @@ export const TripDetailsPage: React.FC = () => {
               )}
               <div>
                 <p className="text-sm text-gray-500">Freight Rate</p>
-                <p className="font-medium text-gray-900 dark:text-gray-100">₹{trip.freight_rate.toFixed(2)}</p>
+                <p className="font-medium text-gray-900 dark:text-gray-100">₹{Number(trip.freight_rate).toFixed(2)}</p>
               </div>
               {trip.vehicle_rate && (
                 <div>
                   <p className="text-sm text-gray-500">Vehicle Rate</p>
-                  <p className="font-medium text-gray-900 dark:text-gray-100">₹{trip.vehicle_rate.toFixed(2)}</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">₹{Number(trip.vehicle_rate).toFixed(2)}</p>
                 </div>
               )}
               {trip.weight && (
@@ -150,7 +150,7 @@ export const TripDetailsPage: React.FC = () => {
                       <p className="font-medium text-gray-900 dark:text-gray-100">{exp.expense_type.replace('_', ' ')}</p>
                       <p className="text-xs text-gray-500">{new Date(exp.expense_date).toLocaleDateString()} {exp.remarks ? `- ${exp.remarks}` : ''}</p>
                     </div>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100">₹{exp.amount.toFixed(2)}</p>
+                    <p className="font-semibold text-gray-900 dark:text-gray-100">₹{Number(exp.amount).toFixed(2)}</p>
                   </li>
                 ))}
               </ul>
