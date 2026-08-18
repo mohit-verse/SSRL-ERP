@@ -37,21 +37,19 @@ describe('E2E: CA Role Authorization', () => {
       // 4. Create some test data as Admin for the CA to read/attempt to mutate
       const partyRes = await axios.post(`${API_URL}/parties`, {
         party_name: `Test Party ${Date.now()}`,
-        party_type: 'CUSTOMER',
+        party_type: 'MARKET',
         city: 'Mumbai'
       }, { headers: { Authorization: `Bearer ${adminToken}` }});
       testPartyId = partyRes.data.data.id;
 
       const tripRes = await axios.post(`${API_URL}/trips`, {
-        trip_number: `TRP-${Date.now()}`,
         loading_date: new Date().toISOString(),
         party_id: testPartyId,
         from_city: 'Mumbai',
         to_city: 'Delhi',
         vehicle_number: 'MH01AA1111',
-        vehicle_type: 'EXTERNAL',
-        freight_rate: 50000,
-        status: 'OPEN'
+        driver_mobile: '9876543210',
+        freight_rate: 50000
       }, { headers: { Authorization: `Bearer ${adminToken}` }});
       testTripId = tripRes.data.data.id;
 
@@ -73,13 +71,12 @@ describe('E2E: CA Role Authorization', () => {
   it('B. CA cannot create a trip', async () => {
     try {
       await axios.post(`${API_URL}/trips`, {
-        trip_number: `TRP-TEST`,
         loading_date: new Date().toISOString(),
         party_id: testPartyId,
         from_city: 'A',
         to_city: 'B',
         vehicle_number: 'TEST',
-        vehicle_type: 'EXTERNAL',
+        driver_mobile: '9876543210',
         freight_rate: 100
       }, { headers: { Authorization: `Bearer ${caToken}` }});
       expect(true).toBe(false);
@@ -184,7 +181,7 @@ describe('E2E: CA Role Authorization', () => {
     try {
       await axios.post(`${API_URL}/parties`, {
         party_name: 'CA Created Party',
-        party_type: 'CUSTOMER'
+        party_type: 'MARKET'
       }, { headers: { Authorization: `Bearer ${caToken}` }});
       expect(true).toBe(false);
     } catch (err: any) {
@@ -274,7 +271,7 @@ describe('E2E: CA Role Authorization', () => {
     // We use the admin token to prove mutation still works
     const res = await axios.post(`${API_URL}/parties`, {
       party_name: `Admin Created Party ${Date.now()}`,
-      party_type: 'VENDOR',
+      party_type: 'MARKET',
       city: 'Pune'
     }, { headers: { Authorization: `Bearer ${adminToken}` }});
     expect(res.status).toBe(201);
