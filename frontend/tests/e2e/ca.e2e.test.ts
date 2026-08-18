@@ -258,12 +258,12 @@ describe('E2E: CA Role Authorization', () => {
   // P. CA can access permitted export functionality.
   it('P. CA can access permitted export functionality', async () => {
     const res = await axios.post(`${API_URL}/reports/export`, {
-      reportType: 'OUTSTANDING'
+      reportType: 'OUTSTANDING_REPORT',
+      format: 'EXCEL'
     }, {
       headers: { Authorization: `Bearer ${caToken}` }
     });
-    // Even if it returns 400 for bad data, it shouldn't return 403.
-    expect(res.status).not.toBe(403);
+    expect(res.status).toBe(200);
   });
 
   // Q. An ADMIN user retains the existing mutation capabilities.
