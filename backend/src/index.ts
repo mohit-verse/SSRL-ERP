@@ -9,8 +9,7 @@ const port = config.port;
 
 const allowedOrigins = [
   'http://localhost:5173',
-  'http://tauri.localhost',
-  'tauri://localhost'
+  'https://ssrl-erp.vercel.app'
 ];
 
 app.use(cors({
