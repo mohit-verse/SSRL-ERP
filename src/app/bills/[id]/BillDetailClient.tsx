@@ -1,270 +1,367 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { UserRole } from '@/lib/types';
+import { formatIndianCurrency, getBillStatusBadge } from '../BillsClient';
 
 interface Props {
-  bill: any;
+  billId: string;
   userRole: UserRole;
 }
 
-export default function BillDetailClient({ bill: initialBill, userRole }: Props) {
-  const [bill, setBill] = useState(initialBill);
-  const [selectedVersionNum, setSelectedVersionNum] = useState<number>(initialBill.current_version || 1);
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancelReason, setCancelReason] = useState('');
-  const [loading, setLoading] = useState(false);
+export default function BillDetailClient({ billId, userRole }: Props) {
+  const [bill, setBill] = useState<any | null>(null);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [selectedVersionNumber, setSelectedVersionNumber] = useState<number | null>(null);
 
-  const isSuperAdmin = userRole === 'SUPER_ADMIN';
-  const isReadOnly = userRole === 'CA_AUDITOR';
-
-  const currentVersionRecord = (bill.bill_versions || []).find((v: any) => v.version_number === selectedVersionNum);
-  const snapshotData = currentVersionRecord?.snapshot_data || {};
-  const partyInfo = snapshotData.party || {};
-  const tripSnapshots = snapshotData.trips || [];
-  const totals = snapshotData.totals || {};
-
-  const handleGenerateNewVersion = async () => {
-    if (isReadOnly) return;
-    setErrorMsg(null);
-    setSuccessMsg(null);
+  const fetchBillDetails = useCallback(async () => {
     setLoading(true);
-
+    setErrorMsg(null);
     try {
-      const res = await fetch(`/api/bills/${bill.id}/versions`, { method: 'POST' });
+      const res = await fetch(`/api/bills/${billId}`);
       const data = await res.json();
+
       if (!res.ok) {
-        setErrorMsg(data.error || 'Failed to generate new bill version.');
+        if (res.status === 404) {
+          setErrorMsg('404: Bill record not found.');
+        } else {
+          setErrorMsg(data.error || 'Failed to load bill details.');
+        }
         return;
       }
 
-      setBill((prev: any) => ({
-        ...prev,
-        current_version: data.version.version_number,
-        status: 'CURRENT',
-        bill_versions: [...prev.bill_versions, data.version],
-      }));
-      setSelectedVersionNum(data.version.version_number);
-      setSuccessMsg(`Successfully generated Version v${data.version.version_number}! Snapshot frozen.`);
+      setBill(data.bill);
+      setAuditLogs(data.auditLogs || []);
+      // Set default selected version to current_version
+      setSelectedVersionNumber(data.bill.current_version || 1);
     } catch {
-      setErrorMsg('Network error generating new version.');
+      setErrorMsg('Network error connecting to billing service.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [billId]);
 
-  const handleCancelBill = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isSuperAdmin) return;
+  useEffect(() => {
+    fetchBillDetails();
+  }, [fetchBillDetails]);
 
-    setErrorMsg(null);
-    setSuccessMsg(null);
-    setLoading(true);
+  if (loading) {
+    return (
+      <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+        <div style={{ fontSize: '1.2rem', fontWeight: 600 }}>Loading bill snapshot & version history...</div>
+      </div>
+    );
+  }
 
-    try {
-      const res = await fetch(`/api/bills/${bill.id}/cancel`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: cancelReason }),
-      });
+  if (errorMsg || !bill) {
+    return (
+      <div className="glass-card" style={{ padding: '3rem', textAlign: 'center' }}>
+        <h2 style={{ fontSize: '1.4rem', color: 'var(--status-cancelled)', marginBottom: '0.75rem' }}>
+          {errorMsg || 'Bill Not Found'}
+        </h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+          The requested billing record could not be loaded or may have been deleted.
+        </p>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+          <a href="/bills" style={{ padding: '0.6rem 1.2rem', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', borderRadius: 'var(--radius-sm)', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 600 }}>
+            ← Back to Bills
+          </a>
+          <button onClick={fetchBillDetails} className="btn-primary" style={{ padding: '0.6rem 1.2rem', fontSize: '0.85rem' }}>
+            Retry Loading
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-      const data = await res.json();
-      if (!res.ok) {
-        setErrorMsg(data.error || 'Failed to cancel bill.');
-        return;
-      }
+  // Sorted versions descending
+  const versions = [...(bill.bill_versions || [])].sort((a, b) => b.version_number - a.version_number);
 
-      setBill((prev: any) => ({ ...prev, status: 'CANCELLED', cancellation_reason: cancelReason }));
-      setSuccessMsg('Bill cancelled successfully.');
-      setShowCancelModal(false);
-    } catch {
-      setErrorMsg('Network error cancelling bill.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Active selected version
+  const activeVersion = versions.find((v) => v.version_number === selectedVersionNumber) || versions[0];
+  const isCurrentVersionSelected = activeVersion?.version_number === bill.current_version;
 
-  const handleRestoreBill = async () => {
-    if (!isSuperAdmin) return;
-    setErrorMsg(null);
-    setSuccessMsg(null);
-    setLoading(true);
+  // Snapshot Data (STRICT IMMUTABLE HISTORICAL RECORD)
+  const snapshot = activeVersion?.snapshot_data || {};
+  const partyInfo = snapshot.party || bill.parties || {};
+  const snapshotTrips = snapshot.trips || [];
+  const snapshotTotals = snapshot.totals || {};
 
-    try {
-      const res = await fetch(`/api/bills/${bill.id}/restore`, { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) {
-        setErrorMsg(data.error || 'Failed to restore bill.');
-        return;
-      }
-
-      setBill((prev: any) => ({ ...prev, status: 'RESTORED' }));
-      setSuccessMsg('Bill restored successfully.');
-    } catch {
-      setErrorMsg('Network error restoring bill.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Financial values strictly from snapshot
+  const totalGross = Number(snapshotTotals.total_gross_receivable || 0);
+  const totalDeductions = Number(snapshotTotals.total_deductions || 0);
+  const totalTds = Number(snapshotTotals.total_tds_amount || 0);
+  const totalNet = Number(snapshotTotals.total_net_receivable || 0);
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+      
+      {/* 1. Top Navigation & Action Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <a href="/bills" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.85rem' }}>← Back to Bills</a>
-          <h1 style={{ fontSize: '1.75rem', color: 'var(--text-primary)', marginTop: '0.4rem' }}>
-            Bill Record: <span style={{ color: 'var(--accent-primary)' }}>{bill.bill_number}</span>
+          <a href="/bills" style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 600 }}>
+            ← Back to Bills Workspace
+          </a>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.4rem' }}>
+            Bill {bill.bill_number}
           </h1>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.2rem' }}>
+            Party: <strong>{partyInfo.name || '—'}</strong> • Issued: {new Date(bill.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <span className={`badge ${bill.status === 'CURRENT' ? 'badge-delivered' : bill.status === 'OUTDATED' ? 'badge-planned' : 'badge-cancelled'}`}>
-            {bill.status}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {getBillStatusBadge(bill.status)}
+          <span className="badge badge-planned" style={{ fontSize: '0.85rem', fontWeight: 700, padding: '0.4rem 0.85rem' }}>
+            v{bill.current_version} Active
           </span>
-
-          {!isReadOnly && bill.status === 'OUTDATED' && (
-            <button onClick={handleGenerateNewVersion} disabled={loading} className="btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
-              {loading ? 'Generating...' : '⚡ Generate New Version (v' + (bill.current_version + 1) + ')'}
-            </button>
-          )}
-
-          {isSuperAdmin && bill.status !== 'CANCELLED' && (
-            <button onClick={() => setShowCancelModal(true)} style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid var(--status-cancelled)', color: 'var(--status-cancelled)', padding: '0.5rem 1rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.85rem' }}>
-              Cancel Bill
-            </button>
-          )}
-
-          {isSuperAdmin && bill.status === 'CANCELLED' && (
-            <button onClick={handleRestoreBill} disabled={loading} style={{ background: 'rgba(34, 197, 94, 0.2)', border: '1px solid var(--status-delivered)', color: 'var(--status-delivered)', padding: '0.5rem 1rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.85rem' }}>
-              Restore Bill
-            </button>
-          )}
         </div>
       </div>
 
-      {errorMsg && (
-        <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid var(--status-cancelled)', color: 'var(--status-cancelled)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', fontSize: '0.85rem' }}>
-          {errorMsg}
+      {/* 2. Status Banners */}
+      {bill.status === 'OUTDATED' && (
+        <div style={{ background: 'rgba(245, 158, 11, 0.15)', border: '1px solid #f59e0b', color: '#f59e0b', padding: '1rem 1.25rem', borderRadius: 'var(--radius-md)' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.25rem' }}>⚠️ THIS BILL IS OUTDATED</h3>
+          <p style={{ fontSize: '0.85rem', opacity: 0.9 }}>
+            Underlying trip financial information changed after this bill version snapshot was generated. Regenerate a new version (v{(bill.current_version || 1) + 1}) from the bills workspace to update snapshot data.
+          </p>
         </div>
       )}
 
-      {successMsg && (
-        <div style={{ background: 'rgba(34, 197, 94, 0.15)', border: '1px solid var(--status-delivered)', color: 'var(--status-delivered)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', fontSize: '0.85rem' }}>
-          {successMsg}
+      {bill.status === 'TRIP_DELETED' && (
+        <div style={{ background: 'rgba(249, 115, 22, 0.15)', border: '1px solid #f97316', color: '#f97316', padding: '1rem 1.25rem', borderRadius: 'var(--radius-md)' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.25rem' }}>⚠️ TRIP DELETED — BILL INCOMPLETE</h3>
+          <p style={{ fontSize: '0.85rem', opacity: 0.9 }}>
+            One or more trips associated with this bill were soft-deleted. Historical snapshot data remains preserved for financial integrity and audit tracking.
+          </p>
         </div>
       )}
 
-      {/* Version Selector Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.75rem' }}>
-        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', alignSelf: 'center', marginRight: '0.5rem' }}>Historical Versions:</span>
-        {(bill.bill_versions || []).map((v: any) => (
-          <button
-            key={v.id}
-            onClick={() => setSelectedVersionNum(v.version_number)}
-            style={{
-              padding: '0.4rem 0.9rem',
-              borderRadius: 'var(--radius-sm)',
-              border: selectedVersionNum === v.version_number ? '1px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
-              background: selectedVersionNum === v.version_number ? 'var(--accent-primary)' : 'var(--bg-surface)',
-              color: selectedVersionNum === v.version_number ? '#000' : 'var(--text-primary)',
-              fontWeight: 600,
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-            }}
-          >
-            Version v{v.version_number} {v.version_number === bill.current_version ? '(Latest)' : ''}
-          </button>
-        ))}
-      </div>
+      {bill.status === 'CANCELLED' && (
+        <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid var(--status-cancelled)', color: 'var(--status-cancelled)', padding: '1rem 1.25rem', borderRadius: 'var(--radius-md)' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.25rem' }}>🚫 BILL CANCELLED</h3>
+          <p style={{ fontSize: '0.85rem', opacity: 0.9 }}>
+            Reason: <strong>{bill.cancellation_reason || 'No reason provided.'}</strong>
+            {bill.cancelled_at && ` • Cancelled on ${new Date(bill.cancelled_at).toLocaleString('en-IN')}`}
+          </p>
+        </div>
+      )}
 
-      {/* Frozen Snapshot Viewer */}
-      <div style={{ background: '#fff', color: '#1e293b', padding: '2rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #0f172a', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', color: '#0f172a', margin: 0 }}>SHRI SANWARIYA ROAD LINES</h2>
-            <p style={{ fontSize: '0.85rem', color: '#475569', margin: '0.2rem 0 0 0' }}>Transportation & Logistics Service Provider</p>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <h3 style={{ fontSize: '1.1rem', color: '#2563eb', margin: 0 }}>INVOICE / BILL</h3>
-            <p style={{ fontSize: '0.85rem', margin: '0.2rem 0 0 0' }}><strong>Bill #:</strong> {bill.bill_number}</p>
-            <p style={{ fontSize: '0.85rem', margin: '0.2rem 0 0 0' }}><strong>Version:</strong> v{selectedVersionNum} (FROZEN SNAPSHOT)</p>
-            <p style={{ fontSize: '0.85rem', margin: '0.2rem 0 0 0' }}><strong>Generated Date:</strong> {new Date(snapshotData.generated_at || bill.created_at).toLocaleDateString()}</p>
-          </div>
+      {bill.status === 'RESTORED' && (
+        <div style={{ background: 'rgba(168, 85, 247, 0.15)', border: '1px solid var(--status-settled)', color: 'var(--status-settled)', padding: '1rem 1.25rem', borderRadius: 'var(--radius-md)' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.25rem' }}>ℹ️ BILL RESTORED</h3>
+          <p style={{ fontSize: '0.85rem', opacity: 0.9 }}>
+            This bill was restored from cancelled status by an authorized Super Admin.
+          </p>
+        </div>
+      )}
+
+      {/* 3. Version Selector Header Indicator */}
+      <div className="glass-card" style={{ padding: '1rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', background: isCurrentVersionSelected ? 'rgba(34, 197, 94, 0.08)' : 'rgba(59, 130, 246, 0.08)', borderLeft: `4px solid ${isCurrentVersionSelected ? 'var(--status-delivered)' : 'var(--accent-primary)'}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: isCurrentVersionSelected ? 'var(--status-delivered)' : 'var(--accent-primary)' }}>
+            {isCurrentVersionSelected ? '🟢 CURRENT VERSION' : '🔷 HISTORICAL SNAPSHOT VERSION'} (v{activeVersion?.version_number})
+          </span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            Generated on {activeVersion?.generated_at ? new Date(activeVersion.generated_at).toLocaleString('en-IN') : '—'}
+          </span>
         </div>
 
-        {/* Party Info */}
-        <div style={{ marginBottom: '1.5rem', background: '#f8fafc', padding: '1rem', borderRadius: '6px' }}>
-          <h4 style={{ fontSize: '0.9rem', color: '#0f172a', margin: '0 0 0.4rem 0' }}>Billed To (Consignor):</h4>
-          <p style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0 }}>{partyInfo.name}</p>
-          {partyInfo.gstin && <p style={{ fontSize: '0.85rem', margin: '0.2rem 0 0 0' }}><strong>GSTIN:</strong> {partyInfo.gstin}</p>}
-          {partyInfo.phone && <p style={{ fontSize: '0.85rem', margin: '0.2rem 0 0 0' }}><strong>Phone:</strong> {partyInfo.phone}</p>}
-        </div>
-
-        {/* Trips Table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-          <thead>
-            <tr style={{ background: '#0f172a', color: '#fff', textAlign: 'left' }}>
-              <th style={{ padding: '0.6rem' }}>Trip #</th>
-              <th style={{ padding: '0.6rem' }}>Date</th>
-              <th style={{ padding: '0.6rem' }}>Vehicle</th>
-              <th style={{ padding: '0.6rem' }}>Freight (₹)</th>
-              <th style={{ padding: '0.6rem' }}>Unloading (₹)</th>
-              <th style={{ padding: '0.6rem' }}>Detention (₹)</th>
-              <th style={{ padding: '0.6rem' }}>Deductions (₹)</th>
-              <th style={{ padding: '0.6rem' }}>Net Amount (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tripSnapshots.map((t: any) => (
-              <tr key={t.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <td style={{ padding: '0.6rem', fontWeight: 600 }}>{t.trip_number}</td>
-                <td style={{ padding: '0.6rem' }}>{t.loading_date}</td>
-                <td style={{ padding: '0.6rem' }}>{t.vehicle_number || '—'}</td>
-                <td style={{ padding: '0.6rem' }}>₹{t.financials.freight.toLocaleString()}</td>
-                <td style={{ padding: '0.6rem' }}>₹{t.financials.unloading_charges.toLocaleString()}</td>
-                <td style={{ padding: '0.6rem' }}>₹{t.financials.detention.toLocaleString()}</td>
-                <td style={{ padding: '0.6rem' }}>₹{(t.financials.deductions + t.financials.tds_amount).toLocaleString()}</td>
-                <td style={{ padding: '0.6rem', fontWeight: 700, color: '#0f172a' }}>₹{t.financials.net_receivable.toLocaleString()}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Totals */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <div style={{ width: '280px', background: '#f1f5f9', padding: '1rem', borderRadius: '6px' }}>
-            <p style={{ fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', margin: '0 0 0.4rem 0' }}><span>Gross Freight:</span> <strong>₹{(totals.total_freight || 0).toLocaleString()}</strong></p>
-            <p style={{ fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', margin: '0 0 0.4rem 0' }}><span>Unloading Charges:</span> <strong>₹{(totals.total_unloading || 0).toLocaleString()}</strong></p>
-            <p style={{ fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', margin: '0 0 0.4rem 0' }}><span>Detention:</span> <strong>₹{(totals.total_detention || 0).toLocaleString()}</strong></p>
-            <p style={{ fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', margin: '0 0 0.4rem 0', color: '#dc2626' }}><span>Total Deductions/TDS:</span> <strong>- ₹{(totals.total_deductions || 0).toLocaleString()}</strong></p>
-            <hr style={{ border: 'none', borderTop: '1px solid #cbd5e1', margin: '0.5rem 0' }} />
-            <p style={{ fontSize: '1.1rem', display: 'flex', justifyContent: 'space-between', margin: 0, color: '#2563eb', fontWeight: 700 }}><span>Net Receivable:</span> <span>₹{(totals.total_net_receivable || 0).toLocaleString()}</span></p>
-          </div>
+        <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+          {formatIndianCurrency(totalNet)}
         </div>
       </div>
 
-      {/* Cancellation Modal */}
-      {showCancelModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '480px', padding: '2rem' }}>
-            <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--status-cancelled)' }}>Cancel Bill</h2>
-            <form onSubmit={handleCancelBill}>
-              <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>Mandatory Cancellation Reason *</label>
-                <textarea required rows={3} placeholder="Incorrect party selected or bill re-issued" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} style={{ width: '100%', padding: '0.6rem', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)' }} />
+      {/* Main Details Grid: Left Content (Trips & Summary) + Right Sidebar (Version History) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '1.5rem', alignItems: 'start' }}>
+        
+        {/* Left Column: Financial Snapshot Breakdown & Trip Ledger */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          
+          {/* Executive Financial Summary Grid */}
+          <div className="glass-card" style={{ padding: '1.5rem' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Snapshot Financial Summary (v{activeVersion?.version_number})
+            </h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1.25rem' }}>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Trips Count</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
+                  {snapshotTotals.trip_count || snapshotTrips.length || 0}
+                </div>
               </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-                <button type="button" onClick={() => setShowCancelModal(false)} style={{ padding: '0.6rem 1.2rem', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}>Cancel</button>
-                <button type="submit" disabled={loading} style={{ padding: '0.6rem 1.2rem', background: 'var(--status-cancelled)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600 }}>
-                  {loading ? 'Cancelling...' : 'Confirm Bill Cancellation'}
-                </button>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Gross Receivable</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
+                  {formatIndianCurrency(totalGross)}
+                </div>
               </div>
-            </form>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Deductions</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--status-cancelled)', marginTop: '0.2rem' }}>
+                  -{formatIndianCurrency(totalDeductions)}
+                </div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>TDS Amount</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f59e0b', marginTop: '0.2rem' }}>
+                  -{formatIndianCurrency(totalTds)}
+                </div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Total Net Receivable</span>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--status-delivered)', marginTop: '0.2rem' }}>
+                  {formatIndianCurrency(totalNet)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Snapshot Trips Ledger Table */}
+          <div className="glass-card" style={{ padding: '1.5rem' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem' }}>
+              Snapshot Trip Membership ({snapshotTrips.length} Trips)
+            </h3>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table className="ledger-table" style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th>Trip #</th>
+                    <th>Loading Date</th>
+                    <th>Location / Route</th>
+                    <th>Vehicle</th>
+                    <th>Gross</th>
+                    <th>Deductions</th>
+                    <th>Net Amount</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {snapshotTrips.length === 0 ? (
+                    <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No trip snapshots found in version v{activeVersion?.version_number}.</td></tr>
+                  ) : (
+                    snapshotTrips.map((t: any) => {
+                      const fin = t.financials || {};
+                      const destStr = t.destinations?.map((d: any) => d.destination_name).join(' → ') || '—';
+
+                      return (
+                        <tr key={t.id || t.trip_number}>
+                          <td style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>{t.trip_number}</td>
+                          <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                            {t.loading_date ? new Date(t.loading_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.85rem' }}>{t.loading_location || '—'}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{destStr}</div>
+                          </td>
+                          <td style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>{t.vehicle_number || '—'}</td>
+                          <td style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>{formatIndianCurrency(Number(fin.gross_receivable || 0))}</td>
+                          <td style={{ fontSize: '0.85rem', color: 'var(--status-cancelled)' }}>-{formatIndianCurrency(Number(fin.deductions || 0))}</td>
+                          <td style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.9rem' }}>{formatIndianCurrency(Number(fin.net_receivable || 0))}</td>
+                          <td>
+                            <a href={`/trips/${t.id}`} style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600, fontSize: '0.8rem' }}>
+                              View Trip →
+                            </a>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Audit Timeline */}
+          {auditLogs.length > 0 && (
+            <div className="glass-card" style={{ padding: '1.5rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem' }}>
+                Billing Audit History
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {auditLogs.map((log) => (
+                  <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0.85rem', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
+                    <div>
+                      <span className="badge badge-planned" style={{ fontSize: '0.75rem', fontWeight: 700, marginRight: '0.5rem' }}>
+                        {log.action}
+                      </span>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                        by <strong>{log.profiles?.full_name || 'System User'}</strong> ({log.profiles?.role || 'OPERATOR'})
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      {new Date(log.created_at).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {/* Right Column: Immutable Version History Sidebar */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className="glass-card" style={{ padding: '1.25rem' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
+              Version History ({versions.length})
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+              Select a version to inspect its immutable financial snapshot.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+              {versions.map((ver) => {
+                const isSelected = ver.version_number === selectedVersionNumber;
+                const isCurrent = ver.version_number === bill.current_version;
+                const verTotals = ver.snapshot_data?.totals || {};
+
+                return (
+                  <div
+                    key={ver.id || ver.version_number}
+                    onClick={() => setSelectedVersionNumber(ver.version_number)}
+                    style={{
+                      padding: '0.85rem 1rem',
+                      background: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-surface)',
+                      border: `1px solid ${isSelected ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
+                      borderRadius: 'var(--radius-md)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.35rem',
+                      transition: 'all 0.15s ease-in-out',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.9rem', color: isSelected ? 'var(--accent-primary)' : 'var(--text-primary)' }}>
+                        Version {ver.version_number}
+                      </span>
+                      {isCurrent ? (
+                        <span className="badge badge-delivered" style={{ fontSize: '0.7rem' }}>CURRENT</span>
+                      ) : (
+                        <span className="badge badge-transit" style={{ fontSize: '0.7rem' }}>HISTORICAL</span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      <span>{ver.generated_at ? new Date(ver.generated_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</span>
+                      <strong style={{ color: 'var(--text-primary)', fontSize: '0.85rem' }}>
+                        {formatIndianCurrency(Number(verTotals.total_net_receivable || 0))}
+                      </strong>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
-      )}
+
+      </div>
+
     </div>
   );
 }

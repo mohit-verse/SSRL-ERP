@@ -7,6 +7,9 @@ import {
   validateVehicleOwnershipConsistency, 
   processTripDestinations, 
   validateTripSoftDelete, 
+  validateTripRestore,
+  validateFinancialEditGuards,
+  validateSettlementEligibility,
   TripDomainError 
 } from '@/lib/domain/trips/service';
 import { getIndianFinancialYear, isDateInActiveFY } from '@/lib/utils/financialYear';
@@ -105,7 +108,7 @@ describe('Phase 3 Master Data & Logistics Operational Suite', () => {
     });
   });
 
-  describe('4. Trip Soft-Delete Guards', () => {
+  describe('4. Trip Soft-Delete Guards & Restoration', () => {
     const dummyTrip: Trip = {
       id: 'trip-1',
       trip_number: 'TRP-001',
@@ -133,6 +136,11 @@ describe('Phase 3 Master Data & Logistics Operational Suite', () => {
     it('allows soft-delete for clean trips in active FY by SUPER_ADMIN', () => {
       expect(() => validateTripSoftDelete(dummyTrip, false, adminProfile)).not.toThrow();
     });
+
+    it('validates soft-delete restore permissions', () => {
+      expect(() => validateTripRestore(dummyTrip, operatorProfile)).toThrow('Only SUPER_ADMIN can restore soft-deleted trips');
+      expect(() => validateTripRestore(dummyTrip, adminProfile)).not.toThrow();
+    });
   });
 
   describe('5. Indian Financial Year Boundary Rules', () => {
@@ -152,6 +160,24 @@ describe('Phase 3 Master Data & Logistics Operational Suite', () => {
 
       const oldDate = new Date(2020, 4, 1); // May 2020
       expect(isDateInActiveFY(oldDate, today)).toBe(false);
+    });
+  });
+
+  describe('6. Hardened Financial Edit Guards & Settlement Validation', () => {
+    it('financial edit cannot reduce party net receivable below already allocated active payments', () => {
+      expect(() => validateFinancialEditGuards(10000, 15000)).toThrow('cannot be less than already allocated active payments');
+      expect(() => validateFinancialEditGuards(15000, 10000)).not.toThrow();
+    });
+
+    it('financial edit cannot reduce owner net payable below already allocated active owner payments', () => {
+      expect(() => validateFinancialEditGuards(20000, 5000, 8000, 12000)).toThrow('Owner net payable');
+      expect(() => validateFinancialEditGuards(20000, 5000, 15000, 12000)).not.toThrow();
+    });
+
+    it('DELIVERED -> SETTLED requires complete settlement of receivables and payables', () => {
+      expect(() => validateSettlementEligibility(15000, 10000, 10000, 10000)).toThrow('Outstanding party receivable balance');
+      expect(() => validateSettlementEligibility(15000, 15000, 10000, 8000)).toThrow('Outstanding vehicle owner payable balance');
+      expect(() => validateSettlementEligibility(15000, 15000, 10000, 10000)).not.toThrow();
     });
   });
 });

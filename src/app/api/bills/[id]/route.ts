@@ -31,7 +31,13 @@ export async function GET(
       return NextResponse.json({ error: 'Bill record not found', code: 'BILL_NOT_FOUND' }, { status: 404 });
     }
 
-    return NextResponse.json({ bill });
+    const { data: auditLogs } = await serviceClient
+      .from('audit_logs')
+      .select('*, profiles(full_name, role)')
+      .eq('entity_id', params.id)
+      .order('created_at', { ascending: false });
+
+    return NextResponse.json({ bill, auditLogs: auditLogs || [] });
   } catch (err: unknown) {
     if (err instanceof AuthorizationError) return NextResponse.json({ error: err.message }, { status: 403 });
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

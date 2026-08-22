@@ -28,6 +28,8 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const partyId = searchParams.get('party_id');
     const vehicleId = searchParams.get('vehicle_id');
+    const dateFrom = searchParams.get('date_from');
+    const dateTo = searchParams.get('date_to');
     const query = searchParams.get('q') || '';
 
     const offset = (page - 1) * limit;
@@ -35,7 +37,7 @@ export async function GET(request: NextRequest) {
     const serviceClient = getServiceRoleSupabase();
     let dbQuery = serviceClient
       .from('trips')
-      .select('*, parties(name), vehicles(vehicle_number, ownership_type), vehicle_owners(name), drivers(name)', { count: 'exact' })
+      .select('*, parties(name), vehicles(vehicle_number, ownership_type), vehicle_owners(name), drivers(name), trip_destinations(*), trip_party_financials(*), trip_owner_financials(*)', { count: 'exact' })
       .eq('is_deleted', false)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -43,6 +45,8 @@ export async function GET(request: NextRequest) {
     if (status) dbQuery = dbQuery.eq('trip_status', status);
     if (partyId) dbQuery = dbQuery.eq('party_id', partyId);
     if (vehicleId) dbQuery = dbQuery.eq('vehicle_id', vehicleId);
+    if (dateFrom) dbQuery = dbQuery.gte('loading_date', dateFrom);
+    if (dateTo) dbQuery = dbQuery.lte('loading_date', dateTo);
     if (query) {
       dbQuery = dbQuery.or(`trip_number.ilike.%${query}%,lr_number.ilike.%${query}%,invoice_number.ilike.%${query}%`);
     }
@@ -216,7 +220,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, trip }, { status: 201 });
   } catch (err: unknown) {
-    if (err instanceof TripDomainError) return NextResponse.json({ error: err.message }, { status: 400 });
+    if (err instanceof TripDomainError) return NextResponse.json({ error: err.message, code: err.code }, { status: 400 });
     if (err instanceof AuthorizationError) return NextResponse.json({ error: err.message }, { status: 403 });
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

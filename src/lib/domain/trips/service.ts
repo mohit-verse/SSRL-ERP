@@ -1,21 +1,18 @@
 import { 
   Trip, 
-  TripDestination, 
-  TripPartyFinancials, 
-  TripOwnerFinancials, 
   TripStatus, 
   UserRole, 
   Vehicle, 
   Profile 
 } from '@/lib/types';
-import { CreateTripInput, FullTripRecord } from './types';
-import { calculatePartyFinancials, calculateOwnerFinancials, FinancialValidationError } from '@/lib/domain/financials/service';
 import { isDateInActiveFY } from '@/lib/utils/financialYear';
 
 export class TripDomainError extends Error {
-  constructor(message: string) {
+  public code?: string;
+  constructor(message: string, code?: string) {
     super(message);
     this.name = 'TripDomainError';
+    this.code = code;
   }
 }
 
@@ -143,5 +140,75 @@ export function validateTripSoftDelete(
   const loadingDate = new Date(trip.loading_date);
   if (!isDateInActiveFY(loadingDate)) {
     throw new TripDomainError('Cannot soft-delete trip: Trip belongs to a closed Financial Year.');
+  }
+}
+
+/**
+ * Validates Soft-Delete Restoration Eligibility for a Trip
+ */
+export function validateTripRestore(
+  trip: Trip,
+  userProfile: Profile
+): void {
+  if (userProfile.role !== 'SUPER_ADMIN') {
+    throw new TripDomainError('403 Forbidden: Only SUPER_ADMIN can restore soft-deleted trips.');
+  }
+
+  const loadingDate = new Date(trip.loading_date);
+  if (!isDateInActiveFY(loadingDate)) {
+    throw new TripDomainError('Cannot restore trip: Trip belongs to a closed Financial Year.');
+  }
+}
+
+/**
+ * Enforces Financial Edit Invariants:
+ * Financial modification must never reduce net receivable or net payable below already allocated active payments.
+ */
+export function validateFinancialEditGuards(
+  newNetReceivable: number,
+  allocatedPartyAmount: number,
+  newNetPayable?: number,
+  allocatedOwnerAmount?: number
+): void {
+  if (newNetReceivable < allocatedPartyAmount) {
+    throw new TripDomainError(
+      `Financial modification rejected: Party net receivable (₹${newNetReceivable}) cannot be less than already allocated active payments (₹${allocatedPartyAmount}).`,
+      'FINANCIAL_GUARD_VIOLATION'
+    );
+  }
+
+  if (newNetPayable !== undefined && allocatedOwnerAmount !== undefined && newNetPayable < allocatedOwnerAmount) {
+    throw new TripDomainError(
+      `Financial modification rejected: Owner net payable (₹${newNetPayable}) cannot be less than already allocated active payments (₹${allocatedOwnerAmount}).`,
+      'FINANCIAL_GUARD_VIOLATION'
+    );
+  }
+}
+
+/**
+ * Validates DELIVERED -> SETTLED transition requires full settlement of receivables and payables.
+ */
+export function validateSettlementEligibility(
+  netReceivable: number,
+  allocatedPartyAmount: number,
+  netPayable?: number,
+  allocatedOwnerAmount?: number
+): void {
+  const partyOutstanding = netReceivable - allocatedPartyAmount;
+  if (partyOutstanding > 0) {
+    throw new TripDomainError(
+      `Cannot settle trip: Outstanding party receivable balance (₹${partyOutstanding}) remains unsettled.`,
+      'SETTLEMENT_INCOMPLETE'
+    );
+  }
+
+  if (netPayable !== undefined && allocatedOwnerAmount !== undefined) {
+    const ownerOutstanding = netPayable - allocatedOwnerAmount;
+    if (ownerOutstanding > 0) {
+      throw new TripDomainError(
+        `Cannot settle trip: Outstanding vehicle owner payable balance (₹${ownerOutstanding}) remains unsettled.`,
+        'SETTLEMENT_INCOMPLETE'
+      );
+    }
   }
 }
