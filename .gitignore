@@ -1,20 +1,38 @@
-node_modules/
-dist/
-build/
-.env
-.env.local
-.DS_Store
-coverage/
-.tauri/
-src-tauri/target/
+# dependencies
+/node_modules
+/.pnpm-store
 
-# Bill PDF test/reference files
-Individual Bill.pdf
-Individual Bill Blank.pdf
-Consolidate Bill.pdf
-Consolidate Blank Bill.pdf
-backend/test_individual_portrait.pdf
-backend/test_individual_landscape.pdf
-backend/test_consolidate_portrait.pdf
-backend/test_consolidate_landscape.pdf
-frontend/.env.production
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# local env files
+.env*.local
+.env
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# test & reports
+/coverage
+/playwright-report
+/test-results
+
+# macOS & OS files
+.DS_Store
+*.pem
+docs.zip
+Reports/

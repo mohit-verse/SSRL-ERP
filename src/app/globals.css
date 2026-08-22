@@ -1,0 +1,127 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap');
+
+:root {
+  /* HSL Color System */
+  --bg-primary: hsl(222, 47%, 7%);
+  --bg-surface: hsl(222, 41%, 11%);
+  --bg-surface-hover: hsl(222, 35%, 15%);
+  --bg-glass: rgba(17, 24, 39, 0.75);
+
+  --border-subtle: hsl(220, 25%, 18%);
+  --border-glow: hsl(217, 91%, 60%);
+
+  --text-primary: hsl(210, 40%, 98%);
+  --text-secondary: hsl(215, 20%, 65%);
+  --text-muted: hsl(215, 16%, 45%);
+
+  --accent-primary: hsl(217, 91%, 60%);
+  --accent-primary-hover: hsl(217, 91%, 50%);
+  --accent-gradient: linear-gradient(135deg, hsl(217, 91%, 60%) 0%, hsl(250, 84%, 60%) 100%);
+  
+  /* Status Colors */
+  --status-planned: hsl(45, 93%, 47%);
+  --status-transit: hsl(199, 89%, 48%);
+  --status-delivered: hsl(142, 71%, 45%);
+  --status-settled: hsl(160, 84%, 39%);
+  --status-cancelled: hsl(0, 84%, 60%);
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Outfit', 'Inter', system-ui, sans-serif;
+  
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+}
+
+/* Glassmorphic Container */
+.glass-card {
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* Financial Ledger Table Base */
+.ledger-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.ledger-table th {
+  background: var(--bg-surface-hover);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ledger-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+/* Status Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge-planned { background: rgba(234, 179, 8, 0.15); color: var(--status-planned); border: 1px solid rgba(234, 179, 8, 0.3); }
+.badge-transit { background: rgba(14, 165, 233, 0.15); color: var(--status-transit); border: 1px solid rgba(14, 165, 233, 0.3); }
+.badge-delivered { background: rgba(34, 197, 94, 0.15); color: var(--status-delivered); border: 1px solid rgba(34, 197, 94, 0.3); }
+.badge-settled { background: rgba(16, 185, 129, 0.2); color: var(--status-settled); border: 1px solid rgba(16, 185, 129, 0.4); }
+.badge-cancelled { background: rgba(239, 68, 68, 0.15); color: var(--status-cancelled); border: 1px solid rgba(239, 68, 68, 0.3); }
+
+/* Primary Button */
+.btn-primary {
+  background: var(--accent-gradient);
+  color: #fff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-glow);
+}
+
+.btn-primary:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
